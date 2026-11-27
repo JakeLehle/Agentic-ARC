@@ -1,0 +1,122 @@
+# =============================================================================
+# Agentic ARC — configuration
+#
+# Both scripts in SCRIPTS/ read this file. Edit here rather than in the scripts.
+#
+# FORMAT: a deliberately flat subset of YAML.
+#   key: value          a scalar
+#   key:                a list, with "  - item" lines under it
+#     - item
+#
+# This is not a full YAML parser — no nested maps, no multi-line strings, no
+# anchors. Flat is the point: zero dependencies, and it fails predictably.
+#
+# $USER, $HOME and a leading ~/ are expanded. Quotes are optional and stripped.
+# A "#" preceded by whitespace starts a comment.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# Paths
+# -----------------------------------------------------------------------------
+
+# Where your code lives. VS Code opens here. On Arc this is your /work
+# directory, which is shared storage — reachable from every compute node.
+project_root: /work/$USER
+
+# Where VS Code gets installed. Home directory is also shared storage, so one
+# install serves every node.
+vscode_dir: $HOME/VSCode-linux-x64
+
+# Fallback location for extension .vsix files, used when the marketplace is
+# unreachable from the node.
+vsix_dir: $HOME/vsix
+
+
+# -----------------------------------------------------------------------------
+# Model
+# -----------------------------------------------------------------------------
+
+# Loaded at session start and used by the agent extension. Override on the
+# command line: start_ai_session.sh qwen2.5-coder:32b
+default_model: qwen3-coder:latest
+
+# Load the model at startup so the first real request doesn't pay the ~9s
+# cold start.
+preload_model: true
+
+
+# -----------------------------------------------------------------------------
+# Ollama service
+# -----------------------------------------------------------------------------
+
+# Environment module providing Ollama. Check with: module avail ollama
+ollama_module: ollama
+
+ollama_host: 127.0.0.1
+ollama_port: 11434
+
+# screen session name for the server. Attach with: screen -r <name>
+screen_session: ollama
+
+# How long to wait for the server to answer after starting it.
+startup_timeout: 30
+
+
+# -----------------------------------------------------------------------------
+# Ollama environment variables
+# -----------------------------------------------------------------------------
+# Every key below is exported as OLLAMA_<rest of the name, uppercased>, so
+# ollama_env_keep_alive becomes OLLAMA_KEEP_ALIVE. Add a new line here and the
+# scripts pick it up with no code change.
+
+# CONTEXT LENGTH — the setting most likely to cause confusion if left alone.
+# Ollama's "vram-based default" sums all visible GPU memory and picks a context
+# accordingly: on a 2x32GB node it chose 262144. A 256K KV cache alongside
+# ~18GB of weights will crowd or exceed VRAM, and the symptom looks like a
+# broken model rather than a bad default. 32768 is plenty for coding work.
+ollama_env_context_length: 32768
+
+# KEEP ALIVE — seconds to hold the model in VRAM after the last request.
+# -1 means indefinitely, which removes the reload cost during idle gaps.
+# It does NOT protect against a cluster idle-GPU policy: those measure
+# utilization, and a resident idle model produces none.
+ollama_env_keep_alive: -1
+
+# PARALLEL REQUESTS — 1 is right for a single interactive agent. Raise it only
+# for genuinely concurrent workloads, and check VRAM headroom first: each slot
+# gets its own KV cache.
+ollama_env_num_parallel: 1
+
+# FLASH ATTENTION — reduces KV cache memory. Supported on V100 (compute 7.0).
+ollama_env_flash_attention: 1
+
+# Further examples, commented out:
+# ollama_env_sched_spread: 1        # spread layers across all GPUs
+# ollama_env_max_loaded_models: 2   # keep two models resident
+# ollama_env_debug: 1               # verbose server logging
+
+
+# -----------------------------------------------------------------------------
+# VS Code
+# -----------------------------------------------------------------------------
+
+# Launch VS Code at session start. Set false for a terminal-only workflow.
+launch_vscode: true
+
+# Download endpoint for the Linux x64 desktop build. This is the GUI
+# application, not vscode-server and not the CLI — the virtual desktop provides
+# a real X11 session, so the full application is what runs.
+vscode_url: https://update.code.visualstudio.com/latest/linux-x64/stable
+
+# Extensions installed by setup_vscode_arc.sh.
+#   saoudrizwan.claude-dev   Cline — agentic file/terminal/git tool calling
+#   rooveterinaryinc.roo-cline   Roo Code — Cline fork, custom modes
+#   kilocode.kilo-code      Kilo Code — further fork, MCP marketplace
+# Pick one agent; installing several means several sets of settings to keep
+# straight and, if they all index, redundant work.
+extensions:
+  - saoudrizwan.claude-dev
+  - ms-python.python
+  - ms-toolsai.jupyter
+
